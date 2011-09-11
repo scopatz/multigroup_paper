@@ -1,0 +1,32 @@
+# Files
+*.eps
+*.pyc
+*.png
+
+# Dir specific
+DataXS/*/*
+old/crit_flux/*.txt
+
+# LaTeX
+*.aux
+*.bbl
+*.blg
+*.dvi
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.log
+*.lot
+*.toc
+*.pdf
+*.ps
+*.dia~
+*.out
+*.xml
+*-blx.bib
+
+# MCNP
+*.o
+*.r

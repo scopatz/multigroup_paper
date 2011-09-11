@@ -1,0 +1,92 @@
+%General LaTeX Document Template
+%Build Using...
+%     NAME="file" && latex ${NAME}.tex && dvipdf ${NAME}.dvi
+
+\documentclass[a4paper, 12pt]{article}
+\usepackage{epsfig}
+\usepackage{array}
+\usepackage{color}
+\usepackage{verbatim} 
+\usepackage{cite} 
+
+%General Short-Cut Commands
+\newcommand{\superscript}[1]{\ensuremath{^{\textrm{#1}}}}
+\newcommand{\subscript}[1]{\ensuremath{_{\textrm{#1}}}}
+\newcommand{\nuc}[2]{\superscript{#2}{#1}}
+
+%Commands for this document...
+
+\begin{document}
+
+\begin{center}
+
+Multi-Group Methodology Symbol Listing
+\vspace{10mm}
+
+Anthony Michael Scopatz\\
+The University of Texas at Austin\\
+December 17\textsuperscript{th}, 2009
+\end{center}
+\vspace{5mm}
+
+\section{Independent Variables}
+
+\noindent
+\begin{center}
+\begin{tabular}{|c|c|c|m{10em}|}
+\hline
+\textbf{Symbol}&\textbf{Name}&\textbf{Units}&\textbf{Description}\\
+\hline
+$\phi$& Flux & [n/kb/s] & Neutrons incident on unit area in unit time.\\
+\hline
+$\Phi$& Fluence & [n/kb] & Time integral of flux.\\
+\hline
+$M$& Number of Coarse Steps & [unitless] & Total number of transport data sets.\\
+\hline
+$m$& Coarse Step Index & [unitless] & Means at $m$\superscript{th} step.\\
+\hline
+$N$& Number of Fine Steps & [unitless] & Number of fluence-based data sets to calculate.\\
+\hline
+$n$& Fine Step Index & [unitless] & Means at $n$\superscript{th} step.\\
+\hline
+$I$& Number of Isotopes & [unitless] & Total number of nuclides.\\
+\hline
+$i$& Isotope Index & [unitless] & Means for $i$\superscript{th} isotope.\\
+\hline
+$w(\Phi, i)$& Isotopic Weight Vector & [unitless] & Normaized mass vector of isotopes.\\
+\hline
+$G$& Number of Groups & [unitless] & Total number of energy groups.\\
+\hline
+$g$& First Group Index & [unitless] & Means for $g$\superscript{th} group.\\
+\hline
+$h$& Second Group Index & [unitless] & Means for $h$\superscript{th} group.\\
+\hline
+$^0$& Superscript Zero & [unitless] & Means from initial data sets. Known from library.\\
+\hline
+\end{tabular}
+\end{center}
+
+\clearpage
+\section{Dependent Variables Known From Librbary}
+\noindent
+\begin{center}
+\begin{tabular}{|c|m{6em}|c|m{10em}|}
+\hline
+\textbf{Symbol}&\textbf{Name}&\textbf{Units}&\textbf{Description}\\
+\hline
+$\phi^0_g(\Phi_m)$& Group Fluxes & [n/kb/s] & Known for $M$ steps, $G$ groups.\\
+\hline
+$w^0(\Phi_m, i)$& Isotopic Transformation & [unitless] & Known for $M$ steps, $I$ isotopes.\\
+\hline
+$\Delta w(\Phi_m, i)$& Isotopic Transformation Perturbation & [unitless] & How isotopic concentration differ from library values. Known for $M$ steps, $I$ isotopes.\\
+\hline
+$\sigma^0(\Phi_m,g,i,w^0(\Phi_m,i))$& Cross Section & [b] & Known for $M$ steps, $G$ groups, $I$ isotopes. Only valid for initial composition.\\
+\hline
+$\Delta\sigma(\Phi_m,g,i,\Delta w(\Phi_m,i))$& Cross Section Perturbation & [b] & How cross sections differ from library values.  Known for $M$ steps, $G$ groups, $I$ isotopes and dependent on change from initial composition.\\
+\hline
+\end{tabular}
+\end{center}
+
+
+\end{document}
+
