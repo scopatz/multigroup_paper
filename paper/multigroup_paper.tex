@@ -1,9 +1,53 @@
-\chapter{Multigroup Reactor Methodology}
-\index{Multigroup Reactor Methodology@\emph{Multigroup Reactor Methodology}}
-\label{mg_paper}
+\documentclass[preprint,12pt]{elsarticle}
+
+%General Short-Cut Commands
+\newcommand{\superscript}[1]{\ensuremath{^{\textrm{#1}}}}
+\newcommand{\subscript}[1]{\ensuremath{_{\textrm{#1}}}}
+\newcommand{\nuc}[2]{\superscript{#2}{#1}}
+
+
+% Needed for making certian figures
+\usepackage{color}
+\usepackage{tikz}
+\usepackage{verbatim}
+\usetikzlibrary{shapes,arrows}
+
+\journal{Nuclear Engineering \& Design}
+
+% Start this document...
+\begin{document}
+
+% Article commands
+\begin{frontmatter}
+\title{An Essential Physics Mutligroup Reactor Methodology}
+
+\author[ut]{Anthony M. Scopatz\corref{cor1}}
+\ead{scopatz@mail.utexas.edu}
+\cortext[cor1]{Corresponding author}
+
+\author[ut]{Erich A. Schneider}
+
+\address[ut]{The University of Texas at Austin, Mechanical Engineering, 1 University Station C2200, Austin, Texas, USA, 78712}
+
+
+% Text of abstract
+\begin{abstract}
+\end{abstract}
+
+%% keywords here, in the form: keyword \sep keyword
+\begin{keyword}
+%% MSC codes here, in the form: \MSC code \sep code
+%% or \MSC[2008] code \sep code (2000 is the default)
+\end{keyword}
+
+\end{frontmatter}
+
+
+%
+% Begin real text
+%
 
 \section{Introduction}
-\index{Introduction@\emph{Introduction}}
 \label{mg_sec:intro}
 Previous studies have examined the use of quickly executing fuel cycle models focusing on capturing 
 the essential physics \cite{Li2009b}.  Unlike analytic techniques which seek to solve   
@@ -54,7 +98,6 @@ opportunities for future work.
 
 
 \section{Multigroup Cross Section Generation}
-\index{Multigroup Cross Section Generatrion@\emph{Multigroup Cross Section Generation}}
 \label{mg_sec:xs_gen}
 When seeking to parameterize nuclear power reactors as a function of initial conditions, 
 the set of possible independent parameters quickly becomes large. In addition to geometric 
@@ -91,7 +134,6 @@ cross sections, and the validation technique used.
 
 
 \subsection{Notation}
-\index{Notation@\emph{Notation}}
 \label{mg_sec:notation}
 In the RMG, nuclides are indexed by $i$, times are indexed by $\tau$ (tau), perturbations are indexed by $p$, 
 and energy is indexed by $g$ with lower indices representing higher energy groups.
@@ -167,7 +209,6 @@ gives the exiting neutron energy.  Lastly, let $E_g$ [MeV] represent the group
 upper energy boundaries.  Note that for $G$ groups, there will be $G+1$ boundaries.
 
 \subsection{Parameterization of Initial Conditions}
-\index{Parameterization of Initial Conditions@\emph{Parameterization of Initial Conditions}}
 \label{mg_sec:param_ic}
 The multigroup reactor model requires a library of pre-computed group constants which it uses
 to calculate run-time cross section values for the core.  This library must therefore satisfy 
@@ -297,7 +338,7 @@ region more finely than the fast and thermal regions.
 \caption{Unit Fuel Pin Cell}
 \label{fuel_pin_cell}
 \begin{center}
-\includegraphics[scale=0.5]{multigroup_method/figs/fuel_pin_cell.eps}
+\includegraphics[scale=0.5]{figs/fuel_pin_cell.eps}
 \end{center}
 \end{figure}
 
@@ -305,7 +346,7 @@ region more finely than the fast and thermal regions.
 \caption{Fuel Assembly Lattice}
 \label{lattice}
 \begin{center}
-\includegraphics[scale=0.25]{multigroup_method/figs/lattice.eps}
+\includegraphics[scale=0.25]{figs/lattice.eps}
 \end{center}
 \end{figure}
 
@@ -373,7 +414,6 @@ Note that these mass fractions may be perturbed from the given values.
 
 
 \subsection{Cross Section Generation: Serpent}
-\index{Cross Section Generation: Serpent@\emph{Cross Section Generation: Serpent}}
 \label{mg:xs_gen_serpent}
 Of the over 3000 nuclides, high-fidelity neutron cross section information is available for only 
 approximately 400 major species.  (The ENDF/B-VII incident neutron library was used in the ACE 
@@ -468,7 +508,6 @@ Sample input deck listings that were used to calculate burnups, flux spectra, an
 may be seen in Appendix \ref{appendix_serpent_input}.
 
 \subsection{Cross Section Generation: Physical Models \& Cinder}
-\index{Cross Section Generation: Physical Models@\emph{Cross Section Generation: Physical Models}}
 \label{mg:xs_gen_physics}
 As mentioned in \S \ref{mg:xs_gen_serpent}, high-fidelity cross section data is available for only 
 a small fraction of the nuclides, though arguably the most important ones.  However, some species 
@@ -624,7 +663,6 @@ to the incident scattering constraint yields the appropriate group constant (equ
 
 
 \subsection{Cross Section Generation: Interpolation}
-\index{Cross Section Generation: Interpolation@\emph{Cross Section Generation: Interpolation}}
 \label{mg:xs_gen_interpolation}
 The last class of nuclides are those for which there is no high-fidelity cross section data 
 available.  These species are unimportant to the overall NFC material balance. 
@@ -664,7 +702,6 @@ the fast value.
 
 
 \subsection{Cross Section Validation}
-\index{Cross Section Validation@\emph{Cross Section Validation}}
 \label{mg:xs_validation}
 Due to the quantity of cross section data produced through the three above methods, 
 an automatic validation procedure known as \emph{unit testing}
@@ -733,7 +770,6 @@ here has proven invaluable towards the RMG benchmarking efforts.
 
 
 \section{Multigroup Reactor Model}
-\index{Multigroup Reactor Model@\emph{Multigroup Reactor Model}}
 \label{mg_sec:rmg_model}
 The multigroup reactor model uses the group constant library developed in the previous 
 section to compute criticality and burnup metrics for a nuclear power reactor.
@@ -746,7 +782,7 @@ cross section library.  Other methods are often invalidated when the conditions 
 the group constants were computed are altered.  However, by including a robust set of values
 in the perturbation table, the RMG execution remains meaningful.
 
-\input{multigroup_method/figs/method_diagram}
+\input{figs/method_diagram}
 
 A flow sheet for the RMG methodology is presented in Figure \ref{rmg_method_diagram}.  As is
 seen, the reactor model contains three main calculation stages for each burn time step.
@@ -998,7 +1034,7 @@ Microscopic cross sections calculated via an interpolation between the two neare
 $p_1^*$ \& $p_2^*$  may be collapsed to obtain one-group values  $\sigma_{r_x,i\tau}$.  These 
 one-group values are presented below as part of the benchmark.
 
-\input{multigroup_method/figs/benchmark/nearest_neighbor_table}
+\input{figs/benchmark/nearest_neighbor_table}
 
 Next, the criticality calculation is compared for the Serpent case and the RMG.  This consists of 
 contrasting the multiplication factor and the flux spectrum at different burn times.  In all further
@@ -1015,7 +1051,7 @@ Figure \ref{k_compare} displays the comparison for the multiplication factor $k$
 \caption{Multiplication Factor Benchmark}
 \label{k_compare}
 \begin{center}
-\includegraphics[scale=0.5]{multigroup_method/figs/benchmark/k.eps}
+\includegraphics[scale=0.5]{figs/benchmark/k.eps}
 \end{center}
 \end{figure}
 Note that the fractional deviations on the RMG curve in Figure \ref{k_compare} 
@@ -1032,14 +1068,14 @@ may be seen in Figures \ref{spec_BOL} \& \ref{spec_EOL}.
 \caption{BOL Neutron Flux Spectrum Benchmark}
 \label{spec_BOL}
 \begin{center}
-\includegraphics[scale=0.5]{multigroup_method/figs/benchmark/Normalized_Flux_at_0_days.eps}
+\includegraphics[scale=0.5]{figs/benchmark/Normalized_Flux_at_0_days.eps}
 \end{center}
 \end{figure}
 \begin{figure}[htbp]
 \caption{EOL Neutron Flux Spectrum Benchmark}
 \label{spec_EOL}
 \begin{center}
-\includegraphics[scale=0.5]{multigroup_method/figs/benchmark/Normalized_Flux_at_365_days.eps}
+\includegraphics[scale=0.5]{figs/benchmark/Normalized_Flux_at_365_days.eps}
 \end{center}
 \end{figure}
 By inspection, there is good agreement between the RMG and Serpent spectra.  Quantitatively, 
@@ -1065,7 +1101,7 @@ increases with decreasing energy due to the `one-over-v' dependence on the cross
 \caption{Disadvantage Factor $\zeta_{\tau g}$ at BOL \& EOL}
 \label{zeta_BOL_EOL}
 \begin{center}
-\includegraphics[scale=0.5]{multigroup_method/figs/benchmark/zeta.eps}
+\includegraphics[scale=0.5]{figs/benchmark/zeta.eps}
 \end{center}
 \end{figure}
 
@@ -1080,52 +1116,52 @@ Serpent does not report errors associated with the mass fraction so no error bar
 \caption{Actinide Mass Fraction Benchmarks}
 \label{act_benchmark}
 \begin{center}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U234_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U235_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U236_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U238_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/NP237_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU238_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU239_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU240_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/U234_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/U235_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/U236_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/U238_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/NP237_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PU238_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PU239_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PU240_Mass_Fraction_.eps}
 \end{center}
 \end{figure}
 \begin{figure}[htbp]
 \caption{Actinide Mass Fraction Benchmarks (Cont.)}
 \label{act_benchmark_cont}
 \begin{center}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU241_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU242_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM241_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM242_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM243_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM242_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM243_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM244_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PU241_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PU242_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/AM241_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/AM242_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/AM243_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CM242_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CM243_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CM244_Mass_Fraction_.eps}
 \end{center}
 \end{figure}
 \begin{figure}[htbp]
 \caption{Actinide \& Fission Product Mass Fraction Benchmarks}
 \label{act_fp_benchmark}
 \begin{center}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM245_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM246_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SE79_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/KR85_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SR90_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/ZR93_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/TC99_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/I129_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CM245_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CM246_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/SE79_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/KR85_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/SR90_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/ZR93_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/TC99_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/I129_Mass_Fraction_.eps}
 \end{center}
 \end{figure}
 \begin{figure}[htbp]
 \caption{Fission Product Mass Fraction Benchmarks}
 \label{fp_benchmark}
 \begin{center}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PD107_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CS134_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CS137_Mass_Fraction_.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SM151_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PD107_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CS134_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CS137_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{figs/benchmark/SM151_Mass_Fraction_.eps}
 \end{center}
 \end{figure}
 
@@ -1150,52 +1186,52 @@ between data sets while removing the complexity of plotting three dimensional in
 \caption{Actinide One-Group Cross-Section Benchmarks}
 \label{act_xs_benchmark}
 \begin{center}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U234_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U235_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U236_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U238_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/NP237_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU238_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU239_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU240_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/U234_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/U235_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/U236_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/U238_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/NP237_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PU238_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PU239_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PU240_1g_xs.eps}
 \end{center}
 \end{figure}
 \begin{figure}[htbp]
 \caption{Actinide One-Group Cross-Section Benchmarks (Cont.)}
 \label{act_xs_benchmark_cont}
 \begin{center}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU241_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU242_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM241_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM242_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM243_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM242_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM243_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM244_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PU241_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PU242_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/AM241_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/AM242_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/AM243_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CM242_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CM243_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CM244_1g_xs.eps}
 \end{center}
 \end{figure}
 \begin{figure}[htbp]
 \caption{Actinide \& Fission Product One-Group Cross-Section Benchmarks}
 \label{act_fp_xs_benchmark}
 \begin{center}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM245_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM246_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SE79_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/KR85_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SR90_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/ZR93_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/TC99_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/I129_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CM245_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CM246_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/SE79_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/KR85_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/SR90_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/ZR93_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/TC99_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/I129_1g_xs.eps}
 \end{center}
 \end{figure}
 \begin{figure}[htbp]
 \caption{Fission Product One-Group Cross-Section Benchmarks}
 \label{fp_xs_benchmark}
 \begin{center}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PD107_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CS134_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CS137_1g_xs.eps}
-\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SM151_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/PD107_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CS134_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/CS137_1g_xs.eps}
+\includegraphics[scale=0.3]{figs/benchmark/SM151_1g_xs.eps}
 \end{center}
 \end{figure}
 
@@ -1211,11 +1247,11 @@ As Tables \ref{rank_Actinide_sigma_s_table}-\ref{rank_Actinide_sigma_f_table} di
 the RMG predicts one-group collapsed cross sections (and thus reaction rates) nearly universally to 
 within 10\% of the Serpent values.
 
-\input{multigroup_method/figs/benchmark/rank_table_Actinide_sigma_s}
-\input{multigroup_method/figs/benchmark/rank_table_Fission_Product_sigma_s}
-\input{multigroup_method/figs/benchmark/rank_table_Actinide_sigma_a}
-\input{multigroup_method/figs/benchmark/rank_table_Fission_Product_sigma_a}
-\input{multigroup_method/figs/benchmark/rank_table_Actinide_sigma_f}
+\input{figs/benchmark/rank_table_Actinide_sigma_s}
+\input{figs/benchmark/rank_table_Fission_Product_sigma_s}
+\input{figs/benchmark/rank_table_Actinide_sigma_a}
+\input{figs/benchmark/rank_table_Fission_Product_sigma_a}
+\input{figs/benchmark/rank_table_Actinide_sigma_f}
 
 Lastly, the multigroup model ignores many reaction channels that are assumed to be 
 unimportant.  While individual channels have only minor effects, the summation of all 
@@ -1231,7 +1267,7 @@ channel fractions for all nuclides tracked.  Since nearly all of the $m_f$ value
 less than 5\%, the assumption that the untracked channels are individually unimportant
 remains sound.
 
-\input{multigroup_method/figs/benchmark/missing_channel_fraction}
+\input{figs/benchmark/missing_channel_fraction}
 
 
 \section{Conclusion \& Future Work}
@@ -1282,3 +1318,8 @@ transmutation calculation is carried by ORIGEN to avoid writing a custom Bateman
 More sophisticated methods which minimize global error 
 could be implemented into the RMG.  However, the matrix exponential method used here is 
 sufficient for most calculations.
+
+\bibliographystyle{elsarticle-num}
+\bibliography{library.bib}
+
+\end{document}
