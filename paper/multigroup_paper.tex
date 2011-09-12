@@ -429,8 +429,7 @@ approximately 400 major species.  (The ENDF/B-VII incident neutron library was u
 nuclear data format \cite{CHADWICK2006}.)  Moreover, not all reactions are tallied 
 for these nuclides.  However, where fundamental cross section data exists for a nuclide
 and a reaction, it is preferable to use this high-fidelity information to compute group
-constants over other methods discussed below.  For a complete listing of which method was used for each nuclide, 
-and which reaction channels were available, please refer to Appendix \ref{appendix_rmg_nuclide_lists}.
+constants over other methods discussed below.  
 
 $G$-group cross sections are assembled for each perturbation using the Monte Carlo neutron
 transport code Serpent \cite{Lepp2011} where possible.  Char fills a templated Serpent input deck with the
@@ -512,9 +511,6 @@ Serpent outputs per group values for this parameter for different regions.  Whil
 capture per nuclide effects, $\chi(E)$ varies only slightly among different species.  
 Moreover, since a Serpent run is performed for each perturbation, changes to 
 the initial conditions are still encapsulated.  Thus the induced error on the RMG is very low.
-
-Sample input deck listings that were used to calculate burnups, flux spectra, and group constants
-may be seen in Appendix \ref{appendix_serpent_input}.
 
 \subsection{Cross Section Generation: Physical Models \& Cinder}
 \label{mg:xs_gen_physics}
@@ -647,8 +643,7 @@ with
 \end{equation}
 Equation \ref{scat_de} treats $d\sigma_s(E\to E^\prime)/dE^\prime$ in the most general way.  
 Significant algebraic simplifications may be made in the cases where $E^\prime = E$, $m_n \approx M_A$, 
-or $m_n << M_A$.  A proof of the integration from equation \ref{scat_ce} to equation \ref{scat_de} is 
-presented in Appendix \ref{appendix_integrate_solid_angle}.
+or $m_n << M_A$.  
 
 
 Therefore the group-to-group scattering cross section may thus be calculated as in equation \ref{scat_collapse}.
