@@ -1,0 +1,6 @@
+> Extended previous one-energy group reactor model to multiple energy groups.
+> Parameterized neutron cross sections as a function of many reactor state variables.
+> This model is ideal for nuclear fuel cycle calculations because it has execution times on the order of seconds.  
+> Demonstrated this method using a standard light water reactor.
+> Benchmarked this method to the same core implemented in the neutron transport code Serpent.
+
