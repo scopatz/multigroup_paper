@@ -1,11 +1,11 @@
 # Files
-*.eps
 *.pyc
 *.png
 
 # Dir specific
 DataXS/*/*
 old/crit_flux/*.txt
+old/crit_flux/*.eps
 
 # LaTeX
 *.aux

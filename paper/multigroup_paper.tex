@@ -1,0 +1,1284 @@
+\chapter{Multigroup Reactor Methodology}
+\index{Multigroup Reactor Methodology@\emph{Multigroup Reactor Methodology}}
+\label{mg_paper}
+
+\section{Introduction}
+\index{Introduction@\emph{Introduction}}
+\label{mg_sec:intro}
+Previous studies have examined the use of quickly executing fuel cycle models focusing on capturing 
+the essential physics \cite{Li2009b}.  Unlike analytic techniques which seek to solve   
+fundamental physical systems (\emph{e.g.} neutron transport) and then directly couple these models together, 
+essential physics codes parameterize the system.   Interpolations
+of parameterized results from precomputed analytic methods form a quick, run-time solution to the system at hand.
+
+Such methods may be used for any fuel cycle component: enrichment, reactors, reprocessing, 
+repositories, \emph{etc}.  However, their greatest advantage comes for such components whose analytic
+techniques are computationally intensive.  Thus previous work has focused on reactors and repositories
+\cite{Scopatz2009, Li2010a}.
+
+The quickly executing reactor methodologies to date have been one-energy group, fluence-based 
+parameterizations \cite{Schneider2005}.
+Neutron production \& destruction rates and transmutation matrices as a function of fluence 
+(time-integrated flux) were recorded for each species initial present in the core.  A linear combination of 
+the initial nuclides was then used to compute the multiplication factor, fuel burnup, and used fuel 
+vector at discharge.
+
+Because the one-group cross sections used in a manner independent of burnup,
+the parameterizations in the previous model were not sensitive to changes in the flux spectrum over the 
+course of the burn.  The requirement of static cross sections limits the type of reactors that may be 
+studied and is a severe restriction on the fidelity of such models.  In seeking to enhance
+the fidelity of the parametric approach, the flux spectrum evolution and 
+cross section changes must be folded back into the underlying parameterization.
+
+Hence, a multi-energy group reactor model is proposed which will account for changes in the neutron
+flux spectrum as a function of burn time and other reactor attributes.  Because the neutron flux is not constant, 
+parameterization in terms of fluence is no longer an optimal choice.  Instead, the reactor library 
+contains cross section data as a function of burn time under a constant power irradiation.  The reactor model 
+uses perturbations of these cross sections to compute the same information as in the one-group 
+formulation.  Namely, the multiplication factor, fuel burnup, and fuel vector at all desired burn times
+are calculated.  By necessity, the flux spectrum itself is also solved for.  
+
+The purpose of this new multiple energy group reactor model, like with the one-group model, is to 
+execute as quickly as possible.  Unlike in the one-group model, energy-dependent physics will be included.  
+This will enable the inclusion of additional reactor types in an essential physics fuel 
+cycle model (see discussion in \cite{Scopatz2009}).
+
+The multigroup reactor model is discussed in the following sections.  In \S \ref{mg_sec:xs_gen} 
+there is an in depth treatment of the formulation of the cross section library and reactor 
+parameterization.  Then \S \ref{mg_sec:rmg_model} explains the run-time reactor model that 
+utilizes the cross section library.  Following this, \S \ref{mg_sec:benchmark} presents a 
+benchmark of this method to a standard light water reactor.  Finally, \S \ref{mg_sec:conc}
+concludes this study with observations on current limitations of the method and presents 
+opportunities for future work.
+
+
+
+\section{Multigroup Cross Section Generation}
+\index{Multigroup Cross Section Generatrion@\emph{Multigroup Cross Section Generation}}
+\label{mg_sec:xs_gen}
+When seeking to parameterize nuclear power reactors as a function of initial conditions, 
+the set of possible independent parameters quickly becomes large. In addition to geometric 
+design considerations, the fuel characteristics of the reactor must also be accounted for.
+
+In the one-energy-group reactor model (R1G), the initial loading was parameterized based
+on neutron production rates, neutron destruction rates, and transmutation matrices per
+nuclide \cite{Scopatz2009}.  All of these metrics are functions of fluence.  (Under 
+constant flux irradiation, fluence is a surrogate for time.)
+
+A $G$-energy-group reactor model (RMG) seeks to re-parameterize the one-group formulation 
+in terms of energy.  While the multi-group formulation will remain on a per nuclide basis, 
+fluence based metrics are no longer sufficient.  Parameterizing based on fluence was successful in R1G because 
+flux spectrum changes with respect to the buildup of new species were ignored, even as changes to the total 
+flux were accounted for to achieve constant power.   However, 
+spectral changes based on initial composition are precisely what the RMG seeks to capture.
+
+To calculate the multigroup spectrum requires multigroup microscopic neutron cross-sections.  
+Performing a spectral calculation followed by a group collapse generates burnup dependent 
+group fluxes and cross sections, and thus burnup dependent reaction rates.
+This is seen in Equation \ref{reaction_rate_calc}
+\begin{equation}
+\label{reaction_rate_calc}
+R = \sigma \cdot \phi \cdot 10^{-24}
+\end{equation}
+where $R$ [Hz] is the reaction rate, $\sigma$ [barns] is the one-group cross section, and
+$\phi$ [n/cm\superscript{2}/s] is the energy-integrated flux.
+
+The remainder of this section is delineated into a discussion on notation, how initial 
+reactor conditions are specified, the three methods that were used to compute the
+cross sections, and the validation technique used.
+
+
+
+
+\subsection{Notation}
+\index{Notation@\emph{Notation}}
+\label{mg_sec:notation}
+In the RMG, nuclides are indexed by $i$, times are indexed by $\tau$ (tau), perturbations are indexed by $p$, 
+and energy is indexed by $g$ with lower indices representing higher energy groups.
+Thus the group constants $\sigma_{i\tau g}$ or $\sigma_{ipg}$ are themselves parameterized by nuclide, 
+time or perturbation (see \S \ref{mg_sec:param_ic}), and incident neutron energy.  
+For reference, cross section indices may be seen in Table \ref{rmg_xs_ind}.
+
+\begin{table}[htbp]
+\begin{center}
+\caption{Cross Section Indices}
+\label{rmg_xs_ind}
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Index}        & \textbf{Symbol} \\
+\hline
+Nuclide               & $i$ \\
+Time                  & $\tau$ \\
+Perturbation          & $p$ \\
+Incident Energy Group & $g$ \\
+Exiting Energy Group  & $h$ \\
+Reaction Channel, Table \ref{reaction_type_table} & $r_x$ \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+
+\begin{table}[htbp]
+\begin{center}
+\caption{Neutron Reaction Types}
+\label{reaction_type_table}
+\begin{tabular}{|l||c|c|}
+\hline
+\textbf{Tally}                              & \textbf{Symbol} & \textbf{MT} \\
+\hline
+Total                                       & $t$             & 1  \\
+Scattering                                  & $s$             & 2 + 4 \\
+Elastic Scattering                          & $e$             & 2 \\
+Inelastic Scattering                        & $i$             & 4 = sum(51, 91) \\
+$n$\superscript{th}-state Inelastic Scatter & $i\{n\}$        & 50 + $n$ \\
+(n, 2n)                                     & $2n$            & 16 \\
+(n, 3n)                                     & $3n$            & 17 \\
+Fission                                     & $f$             & 18 = 19 + 20 + 21 +38 \\
+First-chance Fission                        & $f19$           & 19 \\
+Second-chance Fission                       & $f20$           & 20 \\
+Third-chance Fission                        & $f21$           & 21 \\
+Fourth-chance Fission                       & $f38$           & 38 \\
+Absorption                                  & $a$             & 27 = 18 + sum(102, 107) \\
+Neutron Capture                             & $\gamma$        & 102 \\
+Proton                                      & $p$             & 103 \\
+Deuterium                                   & $d$             & 104 \\
+Tritium                                     & \nuc{H}{3}      & 105 \\
+Helium-3                                    & \nuc{He}{3}     & 106 \\
+Alpha                                       & $\alpha$        & 107 \\
+Metastable Neutron Capture                  & $\gamma*$       & $\dagger$ \\
+Metastable (n, 2n*)                         & $2n*$           & $\dagger$ \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+
+To fully describe a reactor, several neutron reaction types are required.  The type 
+also augments the group constant notation by being a comma-separated preposition to 
+the index.  For example, the total cross section would be represented by the symbol 
+$\sigma_{t,i\tau g}$. Table \ref{reaction_type_table} displays the reactions used in this 
+study, their symbolic abbreviations, and the corresponding MT number coming from ENDF 
+specification \cite{MFMT}.  Entries whose MT number is given as a $\dagger$ indicates 
+that the generation of these tallies were performed in a special way (see below).
+Additionally, the group-to-group scattering cross section is denoted by the symbol
+$\sigma_{s,i\tau g\to h}$ where $g$ denotes the incident neutron energy (as before) and $h$
+gives the exiting neutron energy.  Lastly, let $E_g$ [MeV] represent the group 
+upper energy boundaries.  Note that for $G$ groups, there will be $G+1$ boundaries.
+
+\subsection{Parameterization of Initial Conditions}
+\index{Parameterization of Initial Conditions@\emph{Parameterization of Initial Conditions}}
+\label{mg_sec:param_ic}
+The multigroup reactor model requires a library of pre-computed group constants which it uses
+to calculate run-time cross section values for the core.  This library must therefore satisfy 
+two conditions.  The first is that it contain group constant information for all independent, 
+mutable parameters of interest.  The second is that the parameter values must span 
+their corresponding range of interest.  
+
+Changes in the initial parameter conditions would then elicit changes in the cross section 
+values. Such differences in the group constants would thus be picked up by the RMG.  For example, 
+take the case of neutron self-shielding in a material with a strong resonance absorption peak.  
+As the number density of the absorber increases, the group constant around 
+the peak may plummet because the flux in the group decreases.  In a relatively dilute medium, the group 
+constant and the flux would increase because fewer neutrons (in an absolute sense) are consumed 
+in this regime.  That the  cross section library allow such effects to be captured is the primary advantage 
+of a multigroup model over the traditional one-group method.
+
+\begin{table}[htbp]
+\begin{center}
+\caption{Char Parameters that Define a Perturbation}
+\label{char_perturbable_variables}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Parameter}            & \textbf{Symbol}      & \textbf{Units} \\
+\hline
+Fuel Density                  & $\rho_{\mbox{fuel}}$ & g/cm\superscript{3}  \\
+Cladding Density              & $\rho_{\mbox{clad}}$ & g/cm\superscript{3}  \\
+Coolant Density               & $\rho_{\mbox{cool}}$ & g/cm\superscript{3}  \\
+Fuel Cell Radius              & $r_{\mbox{fuel}}$    & cm \\
+Void Cell Radius              & $r_{\mbox{void}}$    & cm \\
+Cladding Cell Radius          & $r_{\mbox{clad}}$    & cm \\
+Unit Cell Pitch               & $\ell$               & cm \\
+Number of Burn Regions        & $b_r$                &  \\
+Fuel Specific Power           & $p_s$                & MW/kgIHM \\
+Initial Nuclide Mass Fraction & $T_{i0}$             & kg\subscript{i}/kgIHM \\
+Burn Times                    & $s$                  & days \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+The code which produces the cross section library is known as Char.  Char currently
+has the ability to adjust a reactor template based on many initial parameters.  These fall
+conceptually into three categories: geometric properties, material properties, and time.
+Table \ref{char_perturbable_variables} lists the parameters that define a \emph{perturbation}
+in Char.
+
+\begin{table}[htbp]
+\begin{center}
+\caption{CHAR Outer Product Perturbations}
+\label{char_param_outer_product}
+\begin{tabular}{|ccccccccccc|}
+\hline
+\textbf{$\rho_{\mbox{fuel}}$} & \textbf{$\rho_{\mbox{clad}}$} & \textbf{$\rho_{\mbox{cool}}$} & \textbf{$r_{\mbox{fuel}}$} & \textbf{$r_{\mbox{void}}$} & \textbf{$r_{\mbox{clad}}$} & \textbf{$\ell$} & \textbf{$b_r$} & \textbf{$p_s$} & \textbf{$T_{\mbox{\nuc{U}{235}0}}$} & \textbf{$s$} \\
+\hline
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.03 & 0   \\ 
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.03 & 100 \\ 
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.03 & 200 \\ 
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.03 & 300 \\ 
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.03 & 400 \\ 
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 0   \\ 
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 100 \\ 
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 200 \\ 
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 200 \\ 
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 300 \\ 
+10.165 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 400 \\ 
+11.235 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.03 & 0   \\ 
+11.235 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.03 & 100 \\ 
+11.235 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.03 & 200 \\ 
+11.235 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.03 & 300 \\ 
+11.235 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.03 & 400 \\ 
+11.235 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 0   \\ 
+11.235 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 100 \\ 
+11.235 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 200 \\ 
+11.235 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 300 \\ 
+11.235 & 5.87 & 0.73 & 0.41 & 0.4185 & 0.475 & 1.3127 & 10 & 0.04 & 0.05 & 400 \\ 
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+Every parameter is specified with one or more values.  The outer product of all parameter
+values defines the set of perturbations for which the group constants are calculated.
+The total number of perturbations, $n_p$, is therefore given by the product of 
+the lengths of the parameter arrays.  Table \ref{char_param_outer_product} 
+displays the perturbations when the fuel density has two reference values, the initial \nuc{U}{235} mass 
+fraction also takes two values, the group constants are calculated at five burn steps, and all 
+other parameters are single valued.  The group constants are calculated for each perturbation
+case (row) defined in Table \ref{char_param_outer_product}.
+
+While Table \ref{char_param_outer_product} spans a limited set of initial conditions, this formulation 
+allows for the easy expansion and extension of input parameters and perturbations. 
+Including additional values for any parameter would extend the number of rows in the table.  
+Including other parameters, such as initial \nuc{U}{236} concentration, would expand the number of
+columns in the perturbation table, effectively increasing the dimensionality parameterized.
+Fuel forms which may contain many initial nuclides in varying concentrations would be parameterized 
+by changing the mass fractions of all actinides initially present in the core.  
+
+\begin{table}[htbp]
+\begin{center}
+\caption{Energy Group Boundaries $E_g$}
+\label{group_boundaries}
+\begin{tabular}{|c|c||c|c|}
+\hline
+\textbf{$g$} & \textbf{$E_g$ [MeV]} & \textbf{$g$} & \textbf{$E_g$ [MeV]} \\
+\hline
+1  & 10      & 11 & 2.15E-5 \\ 
+2  & 1       & 12 & 1.29E-5 \\ 
+3  & 0.1     & 13 & 7.74E-6 \\
+4  & 0.01    & 14 & 4.64E-6 \\
+5  & 3.16E-3 & 15 & 2.78E-6 \\
+6  & 1.00E-3 & 16 & 1.67E-6 \\
+7  & 3.16E-4 & 17 & 1.00E-6 \\
+8  & 1.00E-4 & 18 & 1.00E-7 \\
+9  & 5.99E-5 & 19 & 1.00E-8 \\
+10 & 3.59E-5 & 20 & 1.00E-9 \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+For the remainder of the this study the perturbations presented in Table \ref{char_param_outer_product}
+demonstrate the validity of the multigroup method.  Table \ref{group_boundaries} 
+displays the group structure implemented.  This group structure is designed to capture the resonance 
+region more finely than the fast and thermal regions.  
+
+\begin{figure}[htbp]
+\caption{Unit Fuel Pin Cell}
+\label{fuel_pin_cell}
+\begin{center}
+\includegraphics[scale=0.5]{multigroup_method/figs/fuel_pin_cell.eps}
+\end{center}
+\end{figure}
+
+\begin{figure}[htbp]
+\caption{Fuel Assembly Lattice}
+\label{lattice}
+\begin{center}
+\includegraphics[scale=0.25]{multigroup_method/figs/lattice.eps}
+\end{center}
+\end{figure}
+
+Additionally, though the geometry could be varied, 
+it was fixed for this study.  Figures \ref{fuel_pin_cell} \& \ref{lattice} show the fuel pin cell 
+as well as the 17x17 lattice that were used to generate the precomputed cross section library 
+(see \S \ref{mg:xs_gen_serpent}).  Reflecting boundary conditions were applied to the edges of the lattice.
+
+\begin{table}[htbp]
+\begin{center}
+\caption{Mass Fractions in Fuel Region}
+\label{mass_frac_fuel}
+\begin{tabular}{|l|c|}
+\hline
+\textbf{nuclide} & \textbf{mass fraction} \\
+\hline
+\nuc{O}{16}  & 0.11858 \\
+\nuc{U}{235} & 0.03966 \\
+\nuc{U}{238} & 0.84176 \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+\begin{table}[htbp]
+\begin{center}
+\caption{Mass Fractions in Cladding Region}
+\label{mass_frac_clad}
+\begin{tabular}{|l|c|}
+\hline
+\textbf{nuclide} & \textbf{mass fraction} \\
+\hline
+Zr          & 0.98135 \\
+Cr          & 0.00100 \\
+Fe          & 0.00135 \\
+Ni          & 0.00055 \\
+Sn          & 0.01450 \\
+\nuc{O}{16} & 0.11858 \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+\begin{table}[htbp]
+\begin{center}
+\caption{Mass Fractions in Coolant Region}
+\label{mass_frac_cool}
+\begin{tabular}{|l|c|}
+\hline
+\textbf{nuclide} & \textbf{mass fraction} \\
+\hline
+\nuc{H}{1}  & 0.11107    \\
+\nuc{O}{16} & 0.8886     \\
+\nuc{B}{10} & 6.0785E-05 \\
+\nuc{B}{11} & 0.00026914 \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+Lastly, default materials are specified. Table \ref{mass_frac_fuel} shows the uranium-oxide 
+fuel mass fractions for initial heavy metal (IHM) with a 4.5\% \nuc{U}{235} enrichment.
+Table \ref{mass_frac_clad} gives the mass fractions for the cladding, where the elemental 
+entries have their naturally occurring isotopic distribution.  Table \ref{mass_frac_cool} 
+displays the mass weights for borated light water.
+Note that these mass fractions may be perturbed from the given values.
+
+
+\subsection{Cross Section Generation: Serpent}
+\index{Cross Section Generation: Serpent@\emph{Cross Section Generation: Serpent}}
+\label{mg:xs_gen_serpent}
+Of the over 3000 nuclides, high-fidelity neutron cross section information is available for only 
+approximately 400 major species.  (The ENDF/B-VII incident neutron library was used in the ACE 
+nuclear data format \cite{CHADWICK2006}.)  Moreover, not all reactions are tallied 
+for these nuclides.  However, where fundamental cross section data exists for a nuclide
+and a reaction, it is preferable to use this high-fidelity information to compute group
+constants over other methods discussed below.  For a complete listing of which method was used for each nuclide, 
+and which reaction channels were available, please refer to Appendix \ref{appendix_rmg_nuclide_lists}.
+
+$G$-group cross sections are assembled for each perturbation using the Monte Carlo neutron
+transport code Serpent \cite{Lepp2011} where possible.  Char fills a templated Serpent input deck with the
+perturbation values and then executes the transport code.  The templates use a combination 
+of detectors in the fuel, cladding, and coolant regions as well as the universe metrics that 
+Serpent outputs to determine the group constants.  Detectors tally volume averaged, energy 
+discretized parameters.  To obtain a group constant, the detector for the reaction rate of 
+a nuclide is divided (internally by Serpent) by the detector for the flux spectrum.
+
+In almost every case, the detectors specified with the appropriate MT number suffice.  
+However, some tallies (and some reaction-like parameters) are not given by detectors
+but are still computable via Serpent.
+
+Foremost among the non-standard calculations is the group-to-group scattering cross section
+$\sigma_{s,ipg\to h}$.  Among the region-based output of Serpent are both a group transfer
+probability matrix $P_{g\to h}$ as well as the group-to-group scattering cross section.
+These are subject to the constraints in equations \ref{gtg_constraint} \& \ref{gtg_calc}.
+\begin{equation}
+\label{gtg_constraint}
+\sum_h^G P_{g\to h} = 1
+\end{equation}
+\begin{equation}
+\label{gtg_calc}
+\sigma_{s,g\to h} = P_{g\to h} \cdot \sigma_{s,g}
+\end{equation}
+However, the group transfer probability, and thus the group-to-group scattering cross sections
+are functions of the entire spatial region and not individual species within that region.  
+
+The RMG requires that the group-to-group scattering cross sections be provided 
+per nuclide. To this end, the author modified the source code of Serpent to include an optional 
+additional mode where $P_{gh}$ is calculated for only a specific sub-material in a region.    
+Using this mode with a single nuclide material and the detector-calculated
+scattering cross section $\sigma_{s,ipg}$, the group-to-group scattering cross section was computed 
+for a single species via equation \ref{gtg_calc}.
+
+The next supplemental calculation that Char performs comes more from a deficiency in the 
+ENDF specification than from Serpent.  Reactions which leave the final nucleus in an energy
+state above ground do not receive separate MT numbers.  Some of these excited states
+are metastable and may persist long enough in the core to have a significant interaction 
+probability of their own and/or to have noticeable impacts on the fuel cycle. That metastable 
+nuclides have their own cross section libraries,
+but can not be formed by neutron interactions present in ground-state nuclide libraries, is a perennial issue.
+
+Here the metastable issue is circumvented by using the 64-group cross section library from Cinder that is 
+included with MCNPX versions 2.6+ \cite{Pelowitz2008}.  The Cinder cross sections include metastable
+interactions.  Serpent is then used to compute a 
+flux spectrum which matches the group structure of the Cinder data for each perturbation.  
+Collapsing the metastable and ground cross sections to $G$-groups and dividing the former by 
+the later gives a metastable-to-ground ratio $r_{\mbox{meta}}$.  This ratio may then be used along with 
+the Serpent tally to calculate the group constants desired, as seen in equations \ref{msground} \& 
+\ref{msex}.
+\begin{equation}
+\label{msground}
+\sigma_{\gamma,ipg} = \frac{\sigma_{\gamma_{\mbox{tot}},ipg}}{1 + r_{\mbox{meta}}}
+\end{equation}
+\begin{equation}
+\label{msex}
+\sigma_{\gamma*,ipg} = r_{\mbox{meta}} \cdot \sigma_{\gamma,ipg}
+\end{equation}
+In equation \ref{msground}, the $\sigma_{\gamma_{\mbox{tot}},ipg}$ represents the total neutron
+capture cross section as provided by the Serpent via MT 102.  However, Cinder 
+lists the ground and metastable states separately.  Most nuclides do not have a metastable state and thus the 
+ground state interaction is the total (\emph{i.e.} $\sigma_{\gamma,ipg} = \sigma_{\gamma_{\mbox{tot}},ipg}$).
+The RMG expects the interaction tallies to be split out, as in Cinder.  Analogous equations are 
+derivable for the (n, 2n*) interaction.
+
+Furthermore, the average number of neutrons produced per fission event $\bar{\nu}$ is also 
+calculated in a special way via Serpent.  The pseudo-tally number $-7$ yields $\bar{\nu}\sigma_{f,ipg}$.
+Using the fission group constant calculated from Serpent detectors in the usual way, $\bar{\nu}$
+is obtained via equation \ref{mg_nubar}.
+\begin{equation}
+\label{mg_nubar}
+\bar{\nu}_{ipg} = \frac{\bar{\nu}\sigma_{f,ipg}}{\sigma_{f,ipg}}
+\end{equation}
+
+The final pseudo-tally that is calculated via serpent is the fission neutron energy spectrum, $\chi(E)$.
+The cross section data libraries do not contain information on $\chi(E)$.  However, 
+Serpent outputs per group values for this parameter for different regions.  While this does not 
+capture per nuclide effects, $\chi(E)$ varies only slightly among different species.  
+Moreover, since a Serpent run is performed for each perturbation, changes to 
+the initial conditions are still encapsulated.  Thus the induced error on the RMG is very low.
+
+Sample input deck listings that were used to calculate burnups, flux spectra, and group constants
+may be seen in Appendix \ref{appendix_serpent_input}.
+
+\subsection{Cross Section Generation: Physical Models \& Cinder}
+\index{Cross Section Generation: Physical Models@\emph{Cross Section Generation: Physical Models}}
+\label{mg:xs_gen_physics}
+As mentioned in \S \ref{mg:xs_gen_serpent}, high-fidelity cross section data is available for only 
+a small fraction of the nuclides, though arguably the most important ones.  However, some species 
+may have significant fuel cycle importance and yet do not have the highest-fidelity data available.
+
+In this case, Char and the RMG `fall-back' to using a combination of Cinder data and fundamental 
+physical models to estimate the group constants. The first stage in this calculation, as with the 
+metastable-to-ground ratio, is to use Serpent to compute a 64-group flux $\phi_n$
+which matches the structure used in the Cinder library.  If Cinder data exists for a nuclide for 
+a reaction, a simple collapse down to $G$-groups is performed.  For other reactions physical
+models are used.  In all cases if Cinder data and physical models are not available, then group
+constants of zero are assumed.  Note that group constants tabulated in this way, while dependent 
+on changes in the spectrum, are independent of effects such as self-shielding.
+The remainder of this section discusses the reactions individually.
+
+First, Cinder includes cross section information for fission reactions.  
+If $n$ indexes $N=64$ groups from Cinder and $E$ [MeV] denotes the energy boundaries, 
+the $G$-group collapsed fission cross section may be computed as in equation \ref{fiss_group_collapse}
+\cite{Stacey2007}.
+\begin{equation}
+\label{n_lower}
+n_l = \min(n|E_g<E_n)
+\end{equation}
+\begin{equation}
+\label{n_upper}
+n_u = \max(n|E_n<E_{g+1}) - 1
+\end{equation}
+\begin{equation}
+\label{f_lower}
+f_l = \frac{E_{n_l} - E_g}{E_{n_l} - E_{n_l-1}}
+\end{equation}
+\begin{equation}    
+\label{f_upper}
+f_u = \frac{E_{g+1} - E_{n_u}}{E_{n_u+1} - E_{n_u}}
+\end{equation}
+\begin{equation}
+\label{fiss_group_collapse}
+\sigma_{f,ipg} = \frac{f_l\sigma_{f,ipn_l-1}\phi_{n_l-1} + \sum_{n=n_l}^{n_u} \sigma_{f,ipn}\phi_n + f_l\sigma_{f,ipn_u+1}\phi_{n_u+1}}{f_l\phi_{n_l-1} + \sum_{n=n_l}^{n_u} \phi_n  + f_u\phi_{n_u+1}}
+\end{equation}
+Equations \ref{n_lower}-\ref{f_upper} define lower and upper indices and linear energy fractions
+which aid in calculating group constants in which the boundaries only partially overlap.
+
+Cinder does not include $\bar{\nu}$ data and so for nuclides where the fission cross-section is 
+non-zero, a constant value of 2.5 was assumed.  
+More realistically, $\bar{\nu}$ values may be taken from species with a matching number of nucleons (A-number)
+if data is not available for a nuclide.
+Cinder also does not include fission neutron 
+spectrum information.  Where fission is possible, the physical model seen in equation \ref{chi_model}
+was discretized to $G$-groups.
+\begin{equation}
+\label{chi_model}
+\chi(E) = 0.453 \cdot e^{-1.036E} \cdot \sinh\left(\sqrt{2.29E}\right)
+\end{equation}
+This spectrum comes from \nuc{U}{235}, but may be used for other nuclides as well \cite{Lamarsh2002}.
+
+Non-fission absorption reaction cross sections ($\gamma$, 2n, 3n, $p$, $d$, \nuc{H}{3}, \nuc{He}{3}, 
+$\alpha$, $\gamma*$, 2n*) are computed similarly to the fission group constant.  If a reaction 
+type is available in Cinder, a group collapse on the 64-group data is performed.  If the reaction 
+type is not present for a nuclide, the interaction is assumed to be impossible and zero values
+are returned.
+
+Considerably more complicated is the physical model of the scattering cross section.  Unfortunately, 
+Cinder provides no pretabulated 64-group data to collapse.  Moreover, the group-to-group scattering
+cross section $\sigma_{s,ipg\to h}$ is desired, adding an additional dimension to compute.
+Furthermore, because scattering reactions are mainly about energy transfer between the neutron and 
+nuclide, the material temperature $T$ [K] is also important.
+
+Equation \ref{scat_ce} represents a continuous energy, double differential model of the scattering 
+cross section \cite{Yamamoto2006, Mattes2005}.
+\begin{equation}
+\label{scat_ce}
+\frac{d^2}{dE^\prime d\Omega} \sigma_s(E\to E^\prime, \Omega\to\Omega^\prime) = \frac{b^2}{kT} \cdot 
+            %\left(1 - \frac{2E}{931.46 \cdot m_n}\right) \cdot
+            \sqrt{\frac{E^{\prime}}{E}} e^{-\frac{\beta}{2}} S(\alpha, \beta)
+\end{equation}
+where $b$ [cm] is the bound scattering length of the target nucleus, $E$ [MeV] is the incident
+neutron energy, $E^\prime$ [MeV] is exiting neutron energy, $\Omega$ [sr] is the incident 
+neutron solid angle, $\Omega^\prime$ [sr] is the exiting neutron solid angle,
+$m_n$ is mass of the neutron, 
+$M_A$ is the mass of the target nucleus, and $k$ [MeV/K] is Boltzmann's constant.  $S(\alpha, \beta)$
+represents the scattering kernel with the scattering parameters $\alpha$ and $\beta$ defined in 
+equations \ref{scat_alpha} \& \ref{scat_beta}.
+\begin{equation}
+\label{scat_alpha}
+\alpha = \frac{E^\prime + E - 2\sqrt{E^\prime E}\cos(\theta)}{\frac{M_A}{m_n}kT}
+\end{equation}
+\begin{equation}
+\label{scat_beta}
+\beta = \frac{E^\prime - E}{kT}
+\end{equation}
+Many approximations to the scattering kernel exist.  For a free gas, $S(\alpha, \beta)$ may be set 
+as in \ref{scat_kern}.
+\begin{equation}
+\label{scat_kern}
+S(\alpha, \beta) = \frac{1}{\sqrt{4\pi\alpha}} \mbox{Exp}\left(-\frac{\alpha^2 + \beta^2}{4\alpha}\right)
+\end{equation}
+
+The bound scattering length for a nuclide, which provides a base estimate of the scattering cross section, 
+is computed via coherent and incoherent components as seen in equation \ref{scat_len}.
+\begin{equation}
+\label{scat_len}
+b = \sqrt{\left| b_{\mbox{coh}} \right|^2 + \left| b_{\mbox{inc}} \right|^2}
+\end{equation}
+Values for the scattering lengths were obtained from \cite{Sears1992}.  For nuclides
+that do not appear in this tabulation, a $b$-value for a nuclide of the same element was
+used as a surrogate.  If the entire element was absent from the tabulation, then the 
+scattering length of the next lowest Z-numbered nuclide was substituted instead.
+
+Because neutron transport is not performed here, the direction of neutron travel is not
+important to the RMG. Thus the double differential cross section may be integrated over all solid angles.
+\begin{equation}
+\label{scat_de}
+\frac{d\sigma_s(E\to E^\prime)}{dE^\prime} = \frac{\pi b^2 M_A}{2Em_n} \cdot 
+            %\left(1 - \frac{2E}{931.46 \cdot m_n}\right) \cdot 
+            \left[Q^-(\alpha, \beta) - Q^+(\alpha, \beta)\right]
+\end{equation}
+where 
+\begin{equation}
+\label{scat_q}
+Q^\pm(\alpha, \beta) = \mbox{Exp}\left(-\frac{\beta \mp |\beta|}{2}\right) 
+                       \left[\mbox{Erf}\left(\frac{|\beta| \pm \alpha_1}{2\sqrt{\alpha_1}}\right) - 
+                             \mbox{Erf}\left(\frac{|\beta| \pm \alpha_{-1}}{2\sqrt{\alpha_{-1}}}\right)\right]
+\end{equation}
+with 
+\begin{equation}
+\label{scat_alpha_pm}
+\alpha_{\pm 1} = \frac{E^\prime + E \mp 2\sqrt{E^\prime E}}{\frac{M_A}{m_n}kT}
+\end{equation}
+Equation \ref{scat_de} treats $d\sigma_s(E\to E^\prime)/dE^\prime$ in the most general way.  
+Significant algebraic simplifications may be made in the cases where $E^\prime = E$, $m_n \approx M_A$, 
+or $m_n << M_A$.  A proof of the integration from equation \ref{scat_ce} to equation \ref{scat_de} is 
+presented in Appendix \ref{appendix_integrate_solid_angle}.
+
+
+Therefore the group-to-group scattering cross section may thus be calculated as in equation \ref{scat_collapse}.
+\begin{equation}
+\label{scat_collapse}
+\sigma_{s,g\to h} = \frac{\int_{E_{g+1}}^{E_g} \int_{E_{h+1}}^{E_h} \frac{d\sigma_s(E\to E^\prime)}{dE^\prime}  \phi_g(E) dE^\prime dE}
+                     {\int_{E_{g+1}}^{E_g} \phi_g(E) dE}
+\end{equation}
+This equation is most easily solved numerically rather than analytically.
+A double trapezoidal integration was found to be sufficient for the estimates here.
+Subjecting the integral in equation \ref{scat_collapse} 
+to the incident scattering constraint yields the appropriate group constant (equation \ref{scat_constraint}).
+\begin{equation}
+\label{scat_constraint}
+\sigma_{s,g} = \sum_h^G \sigma_{s,g\to h}
+\end{equation}
+
+
+
+
+
+
+\subsection{Cross Section Generation: Interpolation}
+\index{Cross Section Generation: Interpolation@\emph{Cross Section Generation: Interpolation}}
+\label{mg:xs_gen_interpolation}
+The last class of nuclides are those for which there is no high-fidelity cross section data 
+available.  These species are unimportant to the overall NFC material balance. 
+Thus only the roughest of estimates of their cross sections are needed.  Moreover, such estimation 
+may be done at RMG run-time rather than during library generation.
+
+The Korea Atomic Energy Research Institute (KAERI) provides simple cross section information
+for almost 3000 nuclides at a variety of energies \cite{KAER2000}.  Specifically, data for
+thermal (2.53E-08 [MeV]) and fission spectrum average (taken as 1.0 [MeV]) were used as representative
+thermal and fast cross sections.  Ignoring all other effects (particularly epithermal resonances which 
+may have a large impact),  group constants were computed by linearly interpolating these two cross sections.  
+Call $\sigma_{r_x}^t$ and $\sigma_{r_x}^f$ the thermal and fast cross sections respectively.  The group
+constants for a reaction $r_x$ were estimated using equation \ref{group_const_est}.
+\begin{equation}
+\label{group_const_est}
+\sigma_{r_x,g} = \frac{\sigma_{r_x}^f - \sigma_{r_x}^t}{1 - \mbox{2.53E-08}} \cdot (E_g - \mbox{2.53E-08}) + \sigma_{r_x}^t
+\end{equation}
+
+Alternatively, a simple two energy region method which accounts for the `one-over-v' dependence
+could be implemented.  Consider that for low energies, the cross section is roughly proportional 
+to the inverse of the neutron velocity $v$ [m/s].  The velocity itself is a simple function of 
+the neutron kinetic energy $v = \sqrt{2E/m_n}$.  Thus for low energies, the group constant may 
+be estimated via equation \ref{low_e_estimate}.
+\begin{equation}
+\label{low_e_estimate}
+\sigma_{r_x,g} = \sqrt{\frac{\mbox{2.53E-08}}{E_g}} \cdot \sigma_{r_x}^t \, \mbox{, where } E_g < \mbox{2.53E-08} \left(\frac{\sigma_{r_x}^t}{\sigma_{r_x}^f}\right)^2
+\end{equation}
+However for energies greater than the thermal-fast intersection point, the cross section may simply be taken as 
+the fast value.
+\begin{equation}
+\label{low_e_estimate}
+\sigma_{r_x,g} = \sigma_{r_x}^f \, \mbox{, where } \mbox{2.53E-08} \left(\frac{\sigma_{r_x}^t}{\sigma_{r_x}^f}\right)^2 \le E_g
+\end{equation}
+
+
+
+
+
+\subsection{Cross Section Validation}
+\index{Cross Section Validation@\emph{Cross Section Validation}}
+\label{mg:xs_validation}
+Due to the quantity of cross section data produced through the three above methods, 
+an automatic validation procedure known as \emph{unit testing}
+was employed.  Here, the units are interpreted as the group constants.   A suite of tests 
+executed against these units ensures that the cross sections remain physically valid 
+individually as well as in relation to each other. What follows are the definitions of the 
+physical tests which make up the suite.  All cross sections present in the library were tested 
+in this manner.
+
+The most basic test is to verify that all group constants are real and non-negative valued 
+(infinite and not-a-number values are not allowed).  
+\begin{equation}
+\label{nn_ut}
+0 \le \sigma_{r_x,ipg} < \infty
+\end{equation}
+
+No less important are the constraints that all group constants are less than or equal to 
+the total cross section and that the sum of all non-total reactions is less than or equal
+to the total.
+\begin{equation}
+\label{tot_xs_ut}
+\sigma_{r_x,ipg} \le \sigma_{t,ipg}
+\end{equation}
+\begin{equation}
+\label{tot_xs_sum}
+\sum_{r_x \ne t}\sigma_{r_x,ipg} \le \sigma_{t,ipg}
+\end{equation}
+Moreover, if a nuclide is fissionable, the following conditions apply.
+\begin{equation}
+\label{nu_fiss_ut}
+1 \le \bar{\nu}_{ipg} \le 5.5
+\end{equation}
+\begin{equation}
+\label{chi_fiss_ut}
+\sum_g^G \chi_{ipg} = 1
+\end{equation}
+If the nuclide is not fissionable, the following conditions are used instead.
+\begin{equation}
+\label{not_fiss_ut}
+\sigma_{f,ipg} = \bar{\nu}_{ipg} = \chi_{ipg} = 0
+\end{equation}
+The relation between scattering group constants is defined as follows, to 
+within machine precision.
+\begin{equation}
+\label{scat_xs_ut}
+\sigma_{s,ipg} = \sum_h^G \sigma_{s,ipg\to h}
+\end{equation}
+Lastly, it is required that the constituent absorption tallies sum 
+to less than or equal to the absorption cross section.
+\begin{equation}
+\label{scat_xs_ut}
+\sum_{r_x} \sigma_{r_x,ipg} \le \sigma_{a,ipg}
+\end{equation}
+Further conditions could be added to the suite, such as ensuring that the sum of 
+all non-total group constants is less than or equal to $\sigma_{t,ipg}$.  However, 
+such summation tests are typically indicative of a more primitive error in the 
+group constants.  
+For a more in depth treatment on missing reaction channel errors, please refer to the 
+benchmark in \S \ref{mg_sec:benchmark}.
+
+Thus basic errors are sufficiently captured by the tests above, 
+without adding extraneous noise to the failure analysis.  The simple test suite developed
+here has proven invaluable towards the RMG benchmarking efforts.
+
+
+
+
+\section{Multigroup Reactor Model}
+\index{Multigroup Reactor Model@\emph{Multigroup Reactor Model}}
+\label{mg_sec:rmg_model}
+The multigroup reactor model uses the group constant library developed in the previous 
+section to compute criticality and burnup metrics for a nuclear power reactor.
+The RMG is specified by several parameters, including all those present in Table
+\ref{char_perturbable_variables}.
+
+The advantage of the RMG method is that the values of the reactor parameters
+need not exactly match any of the perturbations (Table \ref{char_param_outer_product}) in the 
+cross section library.  Other methods are often invalidated when the conditions under which 
+the group constants were computed are altered.  However, by including a robust set of values
+in the perturbation table, the RMG execution remains meaningful.
+
+\input{multigroup_method/figs/method_diagram}
+
+A flow sheet for the RMG methodology is presented in Figure \ref{rmg_method_diagram}.  As is
+seen, the reactor model contains three main calculation stages for each burn time step.
+First there is a nearest neighbor \& interpolation calculation for determining the group
+constants for this time step.  Following this is flux-criticality calculation.  Lastly, the reactor
+has a burnup-transmutation computation before continuing to the next time step.  The algorithms
+implemented are discussed in \S \ref{mg_sec:nn_xs}-\ref{mg_sec:trans_calc}.
+
+
+\subsection{Nearest Neighbor Cross Section Calculation}
+\index{Nearest Neighbor Cross Section Calculation@\emph{Nearest Neighbor Cross Section Calculation}}
+\label{mg_sec:nn_xs}
+The process of converting from the perturbation-based cross section library $\sigma_{r_x,ipg}$ to 
+group constants as a function of burn time in the RMG $\sigma_{r_x,i\tau g}$ involves a nearest 
+neighbor calculation as well as a multi-dimensional linear interpolation.
+
+Call $a$ a perturbable reactor parameter, such as fuel density or burn time (\emph{i.e.} the 
+entries in Table \ref{char_perturbable_variables}).   With $p$ as the perturbation index 
+such that $1 \le p \le n_p$ (\emph{i.e.} the row number of Table \ref{char_param_outer_product}), 
+then $a_p$ is the value of this parameter for this perturbation in the cross section library.  
+Furthermore, denote $a_r$ the value of this parameter on the RMG at run time.
+
+In order to perform the correct interpolation, the two perturbations that are closest to the current
+state of the reactor, $a_1^*$ \& $a_2^*$, must be found.  Here the $a_p^*$ notation indicates that 
+the indices have been sorted in order of increasing distance.  
+
+However, the space that the parameters exist in is at least 10-dimensional, as defined by Table \ref{char_perturbable_variables}.  
+Moreover, the scale for these parameters may vary greatly from one $a$ to the next.  Therefore, a realistic
+nearness metric must normalize the values for these parameters individually before calculating a
+global distance.  Equation \ref{nn_distance} calculates $d_p$, the distance of the $p$\superscript{th} 
+perturbation from the state of the reactor.
+\begin{equation}
+\label{nn_distance}
+d_p = \sqrt{\sum_a \left(\frac{a_r - a_p}{a_{n_p}}\right)^2}
+\end{equation}
+Computing the distance $d_p$ for all perturbations to the state of the reactor, 
+the sorted parameters $p^*$ and $a_p^*$ are defined via the sequence $p^* = \left\{p | d_p \le d_{p+1}\right\}$.
+
+Since $a_1^*$ and $a_2^*$ represent the value of a parameter at the two closest perturbations to the
+current state of the reactor, a unitless multidimensional linear interpolation factor $x_f$ may be defined.
+\begin{equation}
+\label{x_factor}
+x_f = \sum_a \left(\frac{a_r - a_1^*}{a_2^* - a_1^*}\right)
+\end{equation}
+This $x_f$ value is set for the reactor as a whole then used to generate group constants for 
+all reactions from $p_1^*$ \& $p_2^*$ perturbation information available in the cross section library. 
+\begin{equation}
+\label{sig_multi_interp}
+\sigma_{r_x,i\tau g} = (\sigma_{r_x,ip_2^*g} - \sigma_{r_x,ip_1^*g}) \cdot x_f  + \sigma_{r_x,ip_1^*g}
+\end{equation}
+Note, that $x_f$ is invalidated whenever the state of the reactor changes.  Since burnup time is one of 
+the parameters, $x_f$ must be recalculated every time step but is otherwise constant for all nuclides
+for all reactions.
+
+
+\subsection{Criticality Calculation}
+\index{Criticality Calculation@\emph{Criticality Calculation}}
+\label{mg_sec:crit_calc}
+Now that group constants have been built for the reactor specified, the next phase of the reactor 
+calculation is to estimate the neutron flux spectrum and the multiplication factor. 
+
+The flux spectrum is computed through an iterative matrix method.  Call $N_{q,i\tau}$ [atoms/cm\superscript{3}] 
+the number density for the $i$\superscript{th} nuclide at time $\tau$ in the $q$\superscript{th} region 
+(fuel, cladding, coolant).  The macroscopic cross section of a region is therefore given by equation 
+\ref{region_xs}.
+\begin{equation}
+\label{region_xs}
+\Sigma_{r_x,q,\tau g} = \sum_i^I N_{q,i\tau} \cdot \sigma_{r_x,i\tau g}
+\end{equation}
+Since the fuel and coolant are the only two regions with significant neutronic characteristics, 
+homogenized full-core cross sections are given by the reduction in equation \ref{region_collapse}
+\begin{equation}
+\label{region_collapse}
+\Sigma_{r_x,\tau g} = \frac{V_{\mbox{fuel}}\Sigma_{r_x,\mbox{fuel},\tau g} + \zeta_{\tau g}V_{\mbox{cool}}\Sigma_{r_x,\mbox{cool},\tau g}}
+                           {V_{\mbox{fuel}} + \zeta_{\tau g}V_{\mbox{cool}}}
+\end{equation}
+Here, $\zeta_{tg}$ is the disadvantage factor per group.  This is defined as the 
+average flux in the coolant divided by the average flux in the fuel. It is computed via the macroscopic 
+cross sections and the lattice functions found in \cite{Lamarsh2002}.  
+
+
+The absorption or $A$-matrix is defined as 
+\begin{equation}
+\label{A_matrix}
+A_{\tau g\to h} = I_G \times \Sigma_{t,tg} - \Sigma_{s,\tau g\to h}
+\end{equation}
+where $I_G$ is the $G \times G$ identity matrix. The fission source or $F$-matrix is defined by
+\begin{equation}
+\label{F_matrix}
+F_{\tau g\to h} = \chi_{\mbox{fuel},\tau g} \times \bar{\nu} \Sigma_{f,\mbox{fuel},\tau g}
+\end{equation}
+The multigroup flux spectrum is then calculated via the linear relation in equation \ref{A_eq_F}.
+\begin{equation}
+\label{A_eq_F}
+A_{\tau g\to h} \cdot \phi_{\tau g} = \frac{1}{k} F_{\tau g\to h} \cdot \phi_{\tau g}
+\end{equation}
+To solve this equation in an efficient iterative fashion, note that the expression 
+$\frac{1}{k}A^{-1}F$ is a matrix with constant coefficients.
+Using the superscript $m$ to indicate the loop
+index, equations \ref{next_flux} \& \ref{next_k} may be successively applied 
+until convergence.
+\begin{equation}
+\label{next_flux}
+\phi_{\tau g}^{m+1} = \frac{1}{k^m} A_{\tau g\to h}^{-1} F_{\tau g\to h} \cdot \phi_{\tau g}^{m+1}
+\end{equation}
+\begin{equation}
+\label{next_k}
+k^{m+1} = k^m  \frac{\sum_g^G \bar{\nu} \Sigma_{f,\mbox{fuel},\tau g} \phi_{\tau g}^{m+1}}
+                         {\sum_g^G \bar{\nu} \Sigma_{f,\mbox{fuel},\tau g} \phi_{\tau g}^m}
+\end{equation}
+The convergence criteria are defined by equations \ref{converge_flux} and \ref{converge_k}
+or when $m=100$.
+\begin{equation}
+\label{converge_flux}
+\left|\frac{\phi_{\tau g}^{m+1} - \phi_{\tau g}^m}{\phi_{\tau g}^{m+1}}\right| = \epsilon
+\end{equation}
+\begin{equation}
+\label{converge_k}
+\left|\frac{k_{\tau}^{m+1} - k_{\tau}^m}{k_{\tau}^{m+1}}\right| = \epsilon
+\end{equation}
+For this study a value of $\epsilon=0.005$ was taken and convergence was typically 
+reached within two or three iterations.
+
+The iterative algorithm described by equations \ref{next_flux} \& \ref{next_k} is 
+sufficient for finding the shape of the neutron flux spectrum.  However, $k^m$ and 
+$\phi_{\tau g}^m$ are more properly interpreted as unnormalized eigenvalues and eigenvectors
+of the linear equation in \ref{A_eq_F}.  Normalization is, therefore, required to 
+discern the `true' values of  $k_{\tau}$ and $\phi_{\tau g}$.
+
+In general, there are two methods with which to normalize the total flux: by assuming constant flux
+or constant power.  The total flux here was determined by matching the specific power $p_s$ [MW/kg] 
+input to the model.  Denote the one-group macroscopic 
+fission cross section as $\Sigma_{f,\mbox{fuel},\tau}$ [cm\superscript{-1}].
+\begin{equation}
+\label{one_group_fission}
+\Sigma_{f,\mbox{fuel},\tau} = \frac{\sum_g^G \Sigma_{f,\mbox{fuel},\tau g}\phi_{\tau g}^m}
+                                   {\sum_g^G \phi_{\tau g}^m}
+\end{equation}
+The total flux for time $\tau$ is thus given by equation \ref{total_flux_rescale}.
+\begin{equation}
+\label{total_flux_rescale}
+\phi_{\tau} = p_s \cdot  \rho_{\mbox{fuel}} \cdot \frac{1}
+                                                       {\mbox{3.284E-14} \cdot \Sigma_{f,\mbox{fuel},\tau}}
+\end{equation}
+Here the value of 3.284E-14 [kJ/n] is a conversion factor assuming an average 
+energy release of 205 [MeV/fission].  This value may used to rescale the spectrum 
+as seen in equation \ref{spectrum_rescale}
+\begin{equation}
+\label{spectrum_rescale}
+\phi_{\tau g} = \phi_{\tau} \cdot  \frac{\phi_{\tau g}^m}
+                                        {\sum_g^G \phi_{\tau g}^m}
+\end{equation}
+
+The multiplication factor of the RMG is handled by another side calculation which 
+uses the rescaled flux spectrum.  Here, $k_t$ is computed strictly as a function of the 
+material and neutronic properties of the core.
+\begin{equation}
+\label{k_rescale}
+k_{\tau} = P_{\mbox{NL}} \cdot \frac{\sum_g^G V_{\mbox{fuel}} \cdot \bar{\nu}\Sigma_{f,\mbox{fuel},\tau g} \cdot \phi_{\tau g}}
+                                    {\sum_g^G \left(V_{\mbox{fuel}} \cdot \Sigma_{a,\mbox{fuel},\tau g} + \zeta_{\tau g} \cdot V_{\mbox{cool}} \cdot \Sigma_{a,\mbox{cool},\tau g}\right) \cdot  \phi_{\tau g}}
+\end{equation}
+In equation \ref{k_rescale}, $P_{NL}$ represents the non-leakage probability and must be externally supplied
+to the reactor model.  Note that $P_{NL}$ is functionally an adjustment parameter
+which is used to account for fundamental modeling errors in the geometry.  The non-leakage 
+probability accounts for the fact that the reactor is modeled as an infinitely reflected system.
+Thus, the RMG may be `tuned'
+by varying $P_{NL}$.  Reasonable limits on which to adjust the non-leakage probability
+vary by reactor type.  
+
+
+\subsection{Transmutation Calculation}
+\index{Transmutation Calculation@\emph{Transmutation Calculation}}
+\label{mg_sec:trans_calc}
+The last portion of the coupled multigroup reactor calculation is the transmutation calculation.
+This step takes the fuel vector at time $\tau$ and burns it to obtain the fuel vector at time $\tau+1$.
+
+ORIGEN 2.2 \cite{Croff2002} was used 
+to calculate the nuclide vector $T_{i\tau+1}$.  ORIGEN has the capability to take an input vector 
+$T_{i\tau}$ and one-group cross sections and perform the transmutation calculation above.  The one-group 
+cross sections that ORIGEN requires are for constituent absorption reactions.  Namely, these are 
+$r_x = \gamma, 2n, 3n, f, \alpha, p, \gamma^*, 2n^*$.  Such cross sections may be found via 
+a simple group collapse as seen in equation \ref{ORIGEN_gc}.
+\begin{equation}
+\label{ORIGEN_gc}
+\sigma_{r_x,i\tau} = \frac{1}{\phi_{\tau}} \sum_g^G \sigma_{r_x,i\tau g} \phi_{\tau g}
+\end{equation}
+Filling an ORIGEN cross section template with the $\sigma_{r_x,i\tau}$ for all available nuclides
+provides the transmutation code a customized library for the RMG at time $\tau$.  Executing ORIGEN
+with this library, for an input vector $T_{i\tau}$, with a constant power irradiation at $p_s$ for
+$\Delta s$ days provides the output nuclide concentration vector.
+
+Therefore the
+time evolution of the flux spectrum and the neutronic characteristics of the fuel are accounted
+for by the RMG burnup model.  This final transmutation step effectively increments the reactor
+calculation to the next time step.  If more time steps were specified, the RMG calculation returns
+to the nearest-neighbor cross section interpolation calculation.  Otherwise, the RMG calculation is
+complete.
+
+
+\section{Benchmark}
+\index{Benchmark@\emph{Benchmark}}
+\label{mg_sec:benchmark}
+The RMG was validated against a Serpent model of the same standard light-water reactor core.  
+The state of the reactor for the both RMG and Serpent was taken at an off-perturbation point in 
+order to test the nearest-neighbor interpolation in addition to the criticality and burnup calculations.  
+The reactor state is for this benchmark is shown in Table \ref{benchmark_rx_state}. 
+\begin{table}[htbp]
+\begin{center}
+\caption{Benchmark Reactor State}
+\label{benchmark_rx_state}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Parameter}            & \textbf{Symbol}      & \textbf{Value} \\
+\hline
+Fuel Density                  & $\rho_{\mbox{fuel}}$ & 10.7 g/cm\superscript{3}  \\
+Cladding Density              & $\rho_{\mbox{clad}}$ & 5.87 g/cm\superscript{3}  \\
+Coolant Density               & $\rho_{\mbox{cool}}$ & 0.73 g/cm\superscript{3}  \\
+Fuel Cell Radius              & $r_{\mbox{fuel}}$    & 0.41 cm \\
+Void Cell Radius              & $r_{\mbox{void}}$    & 0.4185 cm \\
+Cladding Cell Radius          & $r_{\mbox{clad}}$    & 0.475 cm \\
+Unit Cell Pitch               & $\ell$               & 1.3127 cm \\
+Number of Burn Regions        & $b_r$                & 10 \\
+Fuel Specific Power           & $p_s$                & 0.04 MW/kgIHM \\
+Initial \nuc{U}{235} Mass Fraction & $T_{\mbox{\nuc{U}{235}}0}$ & 0.045 kg\subscript{i}/kgIHM \\
+Initial \nuc{U}{238} Mass Fraction & $T_{\mbox{\nuc{U}{238}}0}$ & 0.955 kg\subscript{i}/kgIHM \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+The burnup times that were computed for the reactor ranged from 0 to 365 days with a step size of 
+40.556 days.  The initial heavy metal concentrations, which were used for benchmarking purposes only, 
+may also be seen in Table \ref{benchmark_rx_state}.
+
+
+The nearest neighbor vector $p^*$ for all time steps, in terms of indices
+of the perturbation Table \ref{char_param_outer_product}, is given in Table \ref{nn_table}.
+The reason this matrix is expected is because the computation is closest to zero time at the start of the 
+burn and gradually migrates closer to 400 days by the end.
+Moreover the initial \nuc{U}{235} vector falls in between two of the perturbation cases, but 4.5\% lies
+clearly closer to the 5\% perturbations than the 3\% cases.
+Lastly, the fuel region density lies exactly between two of the perturbation steps.  Thus, the 
+perturbations with the minimal distance to the configuration will flank the fuel enrichment 
+(staying closer to 5\% \nuc{U}{235}) and remain equidistant from the two perturbation fuel 
+densities while otherwise moving through the core in time.  Note that, because of the linear 
+interpolation of the group constants, only the two leftmost $p^*$ columns in Table \ref{nn_table}
+(representing $p_1^*$ and $p_2^*$) 
+influence the RMG calculation.  The remaining columns are shown for demonstrative purposes only.
+Microscopic cross sections calculated via an interpolation between the two nearest neighbor points 
+$p_1^*$ \& $p_2^*$  may be collapsed to obtain one-group values  $\sigma_{r_x,i\tau}$.  These 
+one-group values are presented below as part of the benchmark.
+
+\input{multigroup_method/figs/benchmark/nearest_neighbor_table}
+
+Next, the criticality calculation is compared for the Serpent case and the RMG.  This consists of 
+contrasting the multiplication factor and the flux spectrum at different burn times.  In all further
+benchmarks, the errors in the two-point comparison are defined by a fractional deviation.  Call $a_r$ 
+a parameter computed via the RMG and $a_s$ the same parameter from the Serpent model.  Equation 
+\ref{r_s_fractional_deviation} is the fractional deviation $\varepsilon$ such that values which the RMG
+over-predicts will be positive and under-predictions will be negative.
+\begin{equation}
+\label{r_s_fractional_deviation}
+\varepsilon = \frac{a_r}{a_s} - 1
+\end{equation}
+Figure \ref{k_compare} displays the comparison for the multiplication factor $k$.  
+\begin{figure}[htbp]
+\caption{Multiplication Factor Benchmark}
+\label{k_compare}
+\begin{center}
+\includegraphics[scale=0.5]{multigroup_method/figs/benchmark/k.eps}
+\end{center}
+\end{figure}
+Note that the fractional deviations on the RMG curve in Figure \ref{k_compare} 
+take on a value of less than 1\% at every burnup step.  
+The error bars on the Serpent curve are the stochastic modeling errors inherent in any Monte
+Carlo calculation and do not represent inaccuracies in the cross sections.
+Additionally, these two curves both exhibit the linear trend expected but are seen to have slightly 
+different slopes due to errors in the cross sections and discrepancies in which nuclides are included in 
+the burnup-criticality calculation.
+
+Additionally the flux spectrum at the beginning-of-life (BOL) (0 days) and end-of-life (EOL) (365 days)
+may be seen in Figures \ref{spec_BOL} \& \ref{spec_EOL}.
+\begin{figure}[htbp]
+\caption{BOL Neutron Flux Spectrum Benchmark}
+\label{spec_BOL}
+\begin{center}
+\includegraphics[scale=0.5]{multigroup_method/figs/benchmark/Normalized_Flux_at_0_days.eps}
+\end{center}
+\end{figure}
+\begin{figure}[htbp]
+\caption{EOL Neutron Flux Spectrum Benchmark}
+\label{spec_EOL}
+\begin{center}
+\includegraphics[scale=0.5]{multigroup_method/figs/benchmark/Normalized_Flux_at_365_days.eps}
+\end{center}
+\end{figure}
+By inspection, there is good agreement between the RMG and Serpent spectra.  Quantitatively, 
+the fractional deviation lies between 0.5 - 5\% for most groups.  The groups for which 
+significantly larger $\varepsilon$ are present (10 - 85\%) are  the low energy groups 
+where the flux may be smaller by orders of magnitudes.  
+The coefficients of determination ($R^2$) for both figures are greater than 0.98, indicating a
+strong correllation between Serpent and RMG spectra.  Differences in Figures \ref{spec_BOL} \& 
+\ref{spec_EOL} are partially explained by the difference in regions for which the flux is defined.
+The RMG curves here represent a homogenized full-core, while the Serpent spectra are only for the 
+fuel region.  Given the higher probability of thermal scattering events in the coolant and a greater likelihood of
+absorption reactions in the fuel, the harder Serpent fuel spectrum is expected.
+
+As previously discussed, the RMG modifies the above spectra by a disadvantage factor when computing 
+reaction rates to account for spectral differences between the fuel and coolant regions.
+Recall that $\zeta_{\tau g}$ is defined as the flux in the coolant divided by the flux in the fuel.
+Figure \ref{zeta_BOL_EOL} shows $\zeta_{\tau g}$ as a function of group for both BOL \& EOL.
+Because the absorption cross section of the fuel is larger than that of the coolant, 
+$\zeta_{\tau g}$ will always be greater than unity.  Moreover, the disadvantage factor generally
+increases with decreasing energy due to the `one-over-v' dependence on the cross sections. 
+
+\begin{figure}[htbp]
+\caption{Disadvantage Factor $\zeta_{\tau g}$ at BOL \& EOL}
+\label{zeta_BOL_EOL}
+\begin{center}
+\includegraphics[scale=0.5]{multigroup_method/figs/benchmark/zeta.eps}
+\end{center}
+\end{figure}
+
+
+Lastly, the transmutation calculation is benchmarked.
+Figures \ref{act_benchmark}-\ref{fp_benchmark} display the time evolution of the mass 
+fractions of various important nuclides. This set includes the major actinides 
+as well a various fission products that are tracked in the VISION suite.  
+Serpent does not report errors associated with the mass fraction so no error bars are shown.
+
+\begin{figure}[htbp]
+\caption{Actinide Mass Fraction Benchmarks}
+\label{act_benchmark}
+\begin{center}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U234_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U235_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U236_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U238_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/NP237_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU238_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU239_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU240_Mass_Fraction_.eps}
+\end{center}
+\end{figure}
+\begin{figure}[htbp]
+\caption{Actinide Mass Fraction Benchmarks (Cont.)}
+\label{act_benchmark_cont}
+\begin{center}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU241_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU242_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM241_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM242_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM243_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM242_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM243_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM244_Mass_Fraction_.eps}
+\end{center}
+\end{figure}
+\begin{figure}[htbp]
+\caption{Actinide \& Fission Product Mass Fraction Benchmarks}
+\label{act_fp_benchmark}
+\begin{center}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM245_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM246_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SE79_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/KR85_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SR90_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/ZR93_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/TC99_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/I129_Mass_Fraction_.eps}
+\end{center}
+\end{figure}
+\begin{figure}[htbp]
+\caption{Fission Product Mass Fraction Benchmarks}
+\label{fp_benchmark}
+\begin{center}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PD107_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CS134_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CS137_Mass_Fraction_.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SM151_Mass_Fraction_.eps}
+\end{center}
+\end{figure}
+
+
+As is seen in these figures, there is good agreement between the transmutation vectors computed by
+Serpent and those computed by the RMG via ORIGEN.  The instances with non-trivial disagreements are 
+largely in the higher order actinides.  These nuclides exist in such small amounts, that the relatively
+high errors do not adversely effect the neutronic performance of the fuel.   Moreover, the errors in the
+mass concentrations are largely a function of the error in the lowest energy groups of the flux.  
+
+
+However, the true strength of the RMG methodology is 
+that it takes into account the time evolution of the cross sections as well.  
+Prior essential physics reactor methods assumed static fluxes as well as cross sections \cite{Scopatz2009}.
+For the same set 
+of nuclides above, Figures \ref{act_xs_benchmark}-\ref{fp_xs_benchmark} display total, absorption,
+scattering and fission one-group cross sections as a function of burn time.  One-group cross sections 
+are used here in favor of the multigroup cross sections because they capture the total differences 
+between data sets while removing the complexity of plotting three dimensional information.
+
+\begin{figure}[htbp]
+\caption{Actinide One-Group Cross-Section Benchmarks}
+\label{act_xs_benchmark}
+\begin{center}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U234_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U235_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U236_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/U238_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/NP237_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU238_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU239_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU240_1g_xs.eps}
+\end{center}
+\end{figure}
+\begin{figure}[htbp]
+\caption{Actinide One-Group Cross-Section Benchmarks (Cont.)}
+\label{act_xs_benchmark_cont}
+\begin{center}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU241_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PU242_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM241_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM242_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/AM243_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM242_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM243_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM244_1g_xs.eps}
+\end{center}
+\end{figure}
+\begin{figure}[htbp]
+\caption{Actinide \& Fission Product One-Group Cross-Section Benchmarks}
+\label{act_fp_xs_benchmark}
+\begin{center}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM245_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CM246_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SE79_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/KR85_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SR90_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/ZR93_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/TC99_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/I129_1g_xs.eps}
+\end{center}
+\end{figure}
+\begin{figure}[htbp]
+\caption{Fission Product One-Group Cross-Section Benchmarks}
+\label{fp_xs_benchmark}
+\begin{center}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/PD107_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CS134_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/CS137_1g_xs.eps}
+\includegraphics[scale=0.3]{multigroup_method/figs/benchmark/SM151_1g_xs.eps}
+\end{center}
+\end{figure}
+
+Moreover, since the one-group cross sections are submitted to ORIGEN to make a transmutation library, 
+it is important to ensure that no reaction is far off from a benchmark value.  Tables 
+\ref{rank_Actinide_sigma_s_table}-\ref{rank_Actinide_sigma_f_table} display the 
+nuclides with the highest $|\varepsilon|$ (in descending order) at any time step for absorption and scattering
+reactions for the fission products and for absorption, scattering and fission reactions for the actinides.
+These tables have been filtered to remove species that have short half lives ($<1$ day).  A superior 
+filter may be to remove nuclides for which no Serpent or Cinder data exists, since these species are 
+presumably unimportant to the system as a whole.
+As Tables \ref{rank_Actinide_sigma_s_table}-\ref{rank_Actinide_sigma_f_table} display, 
+the RMG predicts one-group collapsed cross sections (and thus reaction rates) nearly universally to 
+within 10\% of the Serpent values.
+
+\input{multigroup_method/figs/benchmark/rank_table_Actinide_sigma_s}
+\input{multigroup_method/figs/benchmark/rank_table_Fission_Product_sigma_s}
+\input{multigroup_method/figs/benchmark/rank_table_Actinide_sigma_a}
+\input{multigroup_method/figs/benchmark/rank_table_Fission_Product_sigma_a}
+\input{multigroup_method/figs/benchmark/rank_table_Actinide_sigma_f}
+
+Lastly, the multigroup model ignores many reaction channels that are assumed to be 
+unimportant.  While individual channels have only minor effects, the summation of all 
+unobserved reactions may be non-trivial.  Define the missing channel fraction $m_f$ as the maximum 
+over all time of the total one-group cross section less the sum of all other constituent reaction 
+cross sections.
+\begin{equation}
+\label{mcf}
+m_f = \mbox{max}_{\tau}\left[1 - \frac{\sum_{r_x \ne t}\sigma_{r_x,i\tau}}{\sigma_{t,i\tau}}\right]
+\end{equation}
+Table \ref{missing_channel_fraction} displays the sorted (highest to lowest) missing 
+channel fractions for all nuclides tracked.  Since nearly all of the $m_f$ values are
+less than 5\%, the assumption that the untracked channels are individually unimportant
+remains sound.
+
+\input{multigroup_method/figs/benchmark/missing_channel_fraction}
+
+
+\section{Conclusion \& Future Work}
+\index{Conclusion \& Future Work@\emph{Conclusion \& Future Work}}
+\label{mg_sec:conc}
+The multigroup reactor model presented in this study provides a method for dynamically
+computing group constants for any reactor state.  While the initial cross section library
+generation stage may be computationally expensive (days), the resulting RMG calculations 
+execute in seconds.  This dramatic difference in time scales
+makes the RMG well-suited to nuclear fuel cycle simulations.
+
+Still, the RMG is subject to certain natural constraints.  First, in moving from one- to $G$-groups,
+the RMG will take more computational resources to execute than the one-group
+reactor model previously presented.  However, the benefit of using additional groups is that the flux
+spectrum is allowed to change over the course of the fuel burn.  For fast reactors,
+changes in the spectrum are minimal so the error induced by the R1G from a static spectrum
+is negligible.  On the other hand, the RMG enables appropriate modeling of forms such as inert matrix 
+fuel \cite{Sokolov2006} for which R1G models could not capture dramatic shifts in local spectra induced 
+by the compositional evolution of in-core material.
+
+Another constraint with the RMG as formulated is that a multidimensional linear interpolation is 
+used when calculating $\sigma_{r_x,i\tau g}$ from the reactor library $\sigma_{r_x,ipg}$.  Therefore, 
+in order to capture non-linear effects in the cross sections, a refinement to the time grid may 
+be required if the number of steps is too coarse in the area of interest.  This problem may be solved
+in other ways as well.  Foremost among these would be to project the current reactor state onto a 
+set of basis states defined from the perturbations.  A linear combination of these basis states could then
+be used to obtain more representative interpolation coefficients.  Another alternative would be to use a 
+higher order polynomial fit or a spline interpolation to remove the use of a simple linear interpolation. 
+
+Moreover, the perturbation table as formulated is static.  Simple changes to the table
+require a complete re-computation of the outer product of all parameters.  While not computationally
+intensive on its own, the perturbation table determines the state of the reactor and thus the 
+value of all of the group constants in the reactor library.  
+
+A more dynamic perturbation table, and thus more dynamic reactor library, would allow for the RMG to 
+handle an increased number of reactor cases without causing a reset of all cases previously computed.
+One method of implementation would be to allow the parameters in the perturbation table to be stochastically
+generated.  Each parameter $a_p$ would be given a range on which it would be randomly sampled to form a 
+perturbation vector.  Such an implementation would enable the easy extension of the perturbation 
+table in that adding rows would not require a re-computation of the outer product.  
+Where this ability becomes particularly important is in the case 
+where there are a large number of parameters, such as the strategy in which the initial concentration of 
+every actinide is varied.  Here, the option space is much more efficiently covered by a stochastic 
+perturbation table than an outer product one.
+
+Lastly, refinements and optimizations to the existing model may be made.  For example, the current 
+transmutation calculation is carried by ORIGEN to avoid writing a custom Bateman equation solver.  
+More sophisticated methods which minimize global error 
+could be implemented into the RMG.  However, the matrix exponential method used here is 
+sufficient for most calculations.
