@@ -26,6 +26,7 @@ old/crit_flux/*.eps
 *.out
 *.xml
 *-blx.bib
+*.spl
 
 # MCNP
 *.o
