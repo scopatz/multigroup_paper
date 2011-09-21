@@ -2,6 +2,7 @@
 NAME="multigroup_paper"
 latex ${NAME}.tex 
 bibtex ${NAME}.aux 
+bibtex ${NAME}.aux 
 latex ${NAME}.tex 
 latex ${NAME}.tex 
 dvipdf ${NAME}.dvi
